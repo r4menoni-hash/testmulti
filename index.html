@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Listen & Lean — Multiplayer</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Trebuchet MS",Arial,sans-serif}
+:root{--orange:#ff8a3d;--orange2:#ffb15c;--blue:#1677c8;--blue2:#e7f4ff;--navy:#12365a;--ink:#24364b;--white:#fff}
+body{min-height:100vh;background:radial-gradient(circle at 10% 10%,#ffe1c4 0 13%,transparent 30%),radial-gradient(circle at 90% 85%,#cceaff 0 15%,transparent 32%),linear-gradient(135deg,#fffaf5,#eef8ff);color:var(--ink);display:flex;justify-content:center;align-items:center;padding:18px}
+.game{width:min(1180px,100%);min-height:720px;background:rgba(255,255,255,.95);border:4px solid #ffd0a8;border-radius:30px;box-shadow:0 18px 55px rgba(18,54,90,.16);overflow:hidden;position:relative}
+header{padding:15px 24px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#fff0df,#edf7ff);border-bottom:3px solid #d7eaff}
+.logo{font-size:23px;font-weight:900;color:var(--blue)}.logo span{color:var(--orange)}
+.top-right{display:flex;align-items:center;gap:10px}.pill{background:#fff;border:2px solid #cfe7f8;padding:8px 14px;border-radius:22px;font-weight:800}.room-pill{color:var(--blue)}
+.screen{min-height:650px;display:flex;justify-content:center;align-items:center;padding:30px}.card{width:min(720px,100%);text-align:center;background:#fff;border:3px solid #d9ebf8;border-radius:28px;padding:35px;box-shadow:0 10px 30px rgba(18,54,90,.08)}
+.emoji{font-size:65px}.eyebrow{font-weight:900;letter-spacing:2px;color:var(--orange);font-size:15px;margin:8px}
+h1{font-size:clamp(36px,6vw,62px);color:var(--navy);margin:7px 0 15px}h2{color:var(--navy);margin-bottom:10px}.card p{font-size:18px;line-height:1.55}
+button{border:0;cursor:pointer;font-weight:900;transition:.18s}button:hover{transform:translateY(-2px)}
+.primary{background:linear-gradient(135deg,var(--orange),#ffad52);color:#fff;padding:14px 30px;border-radius:30px;font-size:18px;box-shadow:0 7px 18px rgba(255,138,61,.25)}
+.secondary{background:#e9f5ff;color:var(--blue);padding:13px 24px;border-radius:28px;font-size:17px}
+.input{width:100%;padding:15px 18px;border:3px solid #cfe7f8;border-radius:18px;font-size:20px;outline:0;margin:8px 0 14px;text-align:center;font-weight:800;text-transform:uppercase}.input:focus{border-color:var(--orange)}
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.choice{padding:17px;border:3px solid #cfe7f8;border-radius:18px;background:#f8fcff;text-align:left}.choice strong{display:block;color:var(--blue);margin-bottom:5px}.join-note{margin:12px 0 20px;color:#607489;font-size:14px}
+.hidden{display:none!important}
+.lobby{width:min(900px,100%);text-align:center}.pin{font-size:52px;letter-spacing:7px;color:var(--blue);font-weight:900;margin:12px}.players{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:20px 0;min-height:55px}.player-chip{background:#fff2e7;border:2px solid #ffd0a8;color:#9a4d12;border-radius:22px;padding:9px 14px;font-weight:800}.status{margin:15px;color:#607489}
+.instructions{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin:20px 0}.instruction-box{background:#f5fbff;border:2px solid #d7eaff;border-radius:18px;padding:17px}.instruction-box b{display:block;color:var(--blue);margin-bottom:6px}
+.game-screen{display:none;padding:18px 22px;position:relative}.game-layout{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:18px}.play-area{min-width:0}.question-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}.tag{background:#fff0df;color:#a64e0d;padding:8px 13px;border-radius:18px;font-weight:900}.question-number{font-weight:800;color:#6a7b8d}
+.main-area{display:grid;grid-template-columns:1fr 1.05fr;gap:18px}.camera-card{background:#f4faff;border:3px solid #d6eaff;border-radius:23px;padding:13px}.camera-title{text-align:center;font-weight:900;color:var(--blue);margin-bottom:8px}.camera-box{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:16px;background:#dbe7ef}#video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}.lean-guide{position:absolute;top:8px;left:50%;width:3px;height:calc(100% - 16px);background:rgba(255,255,255,.7)}.camera-status{text-align:center;padding:8px;margin-top:8px;background:#fff;border-radius:13px;font-size:13px;font-weight:800}.lean-left{color:#1479c9}.lean-right{color:#e06d17}
+.question-card{display:flex;flex-direction:column;justify-content:center}.listen-box{text-align:center;background:#fff8f1;border:3px solid #ffd9b9;border-radius:22px;padding:18px;margin-bottom:14px}.listen-box p{font-size:17px;margin-bottom:10px}.listen-btn{background:var(--blue);color:#fff;padding:12px 25px;border-radius:30px;font-size:18px}.listen-btn.active{background:var(--orange)}.instruction-line{text-align:center;font-weight:900;color:#516579;margin:10px}.answers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.answer{min-height:125px;border-radius:21px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:21px;font-weight:900;padding:12px;text-align:center}.left-answer{background:#e6f3ff;border:4px solid #a9d8fa;color:#126aa9}.right-answer{background:#fff0e3;border:4px solid #ffc18f;color:#b85613}.arrow{font-size:31px}.answer.correct-answer{border-color:#50b878!important;background:#eafff0!important}.answer.wrong-answer{border-color:#ef7b7b!important}.answer.selected{transform:scale(1.025)}
+.countdown{display:none;position:absolute;inset:0;background:rgba(255,255,255,.94);z-index:20;justify-content:center;align-items:center;flex-direction:column;text-align:center}.countdown-number{font-size:95px;color:var(--orange);font-weight:900}.feedback{position:absolute;inset:0;z-index:30;display:none;justify-content:center;align-items:center;background:rgba(255,255,255,.95)}.feedback-card{text-align:center;padding:35px}.feedback-emoji{font-size:70px}.feedback-card h2{font-size:36px}.next-btn{margin-top:16px;padding:12px 30px;background:var(--blue);color:#fff;border-radius:28px;font-size:17px}
+.rank-panel{background:#fff;border:3px solid #d7eaff;border-radius:22px;padding:13px;align-self:start;position:sticky;top:8px;max-height:500px;overflow:auto}.rank-title{font-weight:900;color:var(--navy);margin-bottom:10px;display:flex;justify-content:space-between}.rank-row{display:grid;grid-template-columns:30px 1fr auto;gap:5px;align-items:center;padding:9px 5px;border-bottom:1px solid #edf2f6;font-size:14px}.rank-row:last-child{border:0}.rank-me{background:#fff1df;border-radius:12px}.rank-num{font-weight:900;color:var(--orange)}.rank-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rank-score{font-weight:900;color:var(--blue)}
+.host-control{background:#fff7ed;border:2px solid #ffd0a8;border-radius:15px;padding:10px;margin-bottom:12px;font-size:13px}.host-control button{margin-top:8px}
+.final{display:none;text-align:center}.final-score{font-size:62px;color:var(--orange);font-weight:900;margin:15px}
+.camera-overlay{position:absolute;inset:0;background:rgba(248,252,255,.96);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:18px;z-index:5}.camera-icon{font-size:48px}.camera-overlay-title{font-size:20px;font-weight:900;color:var(--navy)}.camera-overlay-text{font-size:13px;margin:7px 0 13px;color:#607489}.camera-start-btn{background:var(--orange);color:#fff;padding:11px 20px;border-radius:25px;font-size:16px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#12365a;color:white;padding:11px 18px;border-radius:22px;font-weight:800;z-index:100;display:none}
+@media(max-width:850px){.game-layout{grid-template-columns:1fr}.rank-panel{position:fixed;top:74px;right:10px;width:190px;max-height:240px;z-index:40;box-shadow:0 10px 25px rgba(18,54,90,.2);opacity:.93}.main-area{grid-template-columns:1fr}.instructions{grid-template-columns:1fr}.screen{padding:16px}.game-screen{padding:12px}.pin{font-size:40px}}
+</style>
+</head>
+<body>
+<div class="game">
+<header>
+  <div class="logo">🎧 <span>Listen</span> & Lean! <span>●</span></div>
+  <div class="top-right">
+    <div class="pill room-pill" id="roomHeader" style="display:none">ROOM —</div>
+    <div class="pill">⭐ <span id="score">0</span></div>
+  </div>
+</header>
+
+<div id="homeScreen" class="screen">
+ <div class="card">
+  <div class="emoji">🎧</div><div class="eyebrow">MULTIPLAYER LISTENING GAME</div>
+  <h1>Listen & Lean!</h1>
+  <p>Listen carefully, choose your answer by leaning left or right, and climb the live leaderboard.</p>
+  <div class="choice-grid">
+   <div class="choice"><strong>👑 Host a Room</strong><span>Create a private game PIN and control the session.</span></div>
+   <div class="choice"><strong>🎮 Join a Room</strong><span>Enter a PIN and play with your friends.</span></div>
+  </div>
+  <div style="margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+   <button class="primary" onclick="showCreate()">Create Room</button>
+   <button class="secondary" onclick="showJoin()">Join Room</button>
+  </div>
+ </div>
+</div>
+
+<div id="createScreen" class="screen hidden">
+ <div class="card">
+  <div class="emoji">👑</div><div class="eyebrow">HOST</div><h2>Create a Private Room</h2>
+  <p>Choose a host name. A 6-digit PIN will be generated for your players.</p>
+  <input id="hostName" class="input" maxlength="18" placeholder="Host / teacher name">
+  <button class="primary" onclick="createRoom()">Create Private Room</button>
+  <button class="secondary" style="margin-left:7px" onclick="goHome()">Back</button>
+ </div>
+</div>
+
+<div id="joinScreen" class="screen hidden">
+ <div class="card">
+  <div class="emoji">🎮</div><div class="eyebrow">PLAYER</div><h2>Join a Private Room</h2>
+  <input id="roomInput" class="input" maxlength="6" inputmode="numeric" placeholder="GAME PIN">
+  <input id="playerName" class="input" maxlength="18" placeholder="Your nickname">
+  <p class="join-note">Ask the host for the 6-digit game PIN.</p>
+  <button class="primary" onclick="joinRoom()">Join Game</button>
+  <button class="secondary" style="margin-left:7px" onclick="goHome()">Back</button>
+ </div>
+</div>
+
+<div id="lobbyScreen" class="screen hidden">
+ <div class="lobby">
+  <div class="eyebrow">PRIVATE ROOM</div><h1 style="font-size:46px">Waiting Room</h1>
+  <p>Share this PIN with your players:</p><div class="pin" id="pinDisplay">------</div>
+  <div class="status" id="lobbyStatus">Waiting for players…</div>
+  <div class="players" id="players"></div>
+  <div class="instructions">
+   <div class="instruction-box"><b>1. Listen 🎧</b>Tap Listen and focus on the sentence.</div>
+   <div class="instruction-box"><b>2. Lean 👈👉</b>Lean clearly left or right and hold it.</div>
+   <div class="instruction-box"><b>3. Rank 🏆</b>Correct answers earn points and move you up.</div>
+  </div>
+  <button id="startGameBtn" class="primary" onclick="hostStartGame()" style="display:none">Start Game ▶</button>
+  <p id="hostHint" class="join-note" style="margin-top:15px"></p>
+ </div>
+</div>
+
+<div id="gameScreen" class="game-screen">
+ <div class="game-layout">
+  <div class="play-area">
+   <div class="question-top"><div class="tag" id="roundTag">🌸 Round 1</div><div class="question-number">Question <span id="questionNumber">1</span>/4</div></div>
+   <div id="hostControl" class="host-control hidden">👑 You are the host. Players control their own answers. <button class="secondary" onclick="hostNextQuestion()">Next Question ➜</button></div>
+   <div class="main-area">
+    <div class="camera-card">
+     <div class="camera-title">📷 Lean with your answer!</div>
+     <div class="camera-box">
+      <video id="video" autoplay muted playsinline></video><div class="lean-guide"></div>
+      <div id="cameraOverlay" class="camera-overlay"><div class="camera-icon">📷</div><div class="camera-overlay-title">Camera Ready?</div><div class="camera-overlay-text">Tap below and allow camera access.</div><button class="camera-start-btn" onclick="startCamera()">Enable Camera 📸</button></div>
+     </div>
+     <div class="camera-status" id="cameraStatus">Tap “Enable Camera” to start 📷</div>
+     <div style="font-size:12px;color:#708399;margin-top:6px">💡 Keep your upper body visible. Lean noticeably and hold it.</div>
+    </div>
+    <div class="question-card">
+     <div class="listen-box"><p>🎧 Listen to the sentence!</p><button id="listenButton" class="listen-btn" onclick="speakSentence()">🔊 Listen</button></div>
+     <div class="instruction-line">When you know the answer…<br>Lean LEFT or RIGHT! 👈 👉</div>
+     <div class="answers">
+      <div id="leftBox" class="answer left-answer" onclick="manualAnswer('left')"><div class="arrow">👈</div><div id="leftAnswer">—</div><small>LEAN LEFT</small></div>
+      <div id="rightBox" class="answer right-answer" onclick="manualAnswer('right')"><div class="arrow">👉</div><div id="rightAnswer">—</div><small>LEAN RIGHT</small></div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <aside class="rank-panel"><div class="rank-title">🏆 Live Ranking <span id="rankCount">0</span></div><div id="ranking"></div></aside>
+ </div>
+ <div id="countdown" class="countdown"><div class="countdown-number" id="countdownNumber">3</div><p>Get ready to lean! 👈 👉</p></div>
+ <div id="feedback" class="feedback"><div class="feedback-card"><div class="feedback-emoji" id="feedbackEmoji">🎉</div><h2 id="feedbackTitle">Amazing!</h2><p id="feedbackText">You leaned the correct way!</p><button class="next-btn" id="feedbackNext" onclick="closeFeedback()">Waiting for next question…</button></div></div>
+</div>
+
+<div id="finalScreen" class="screen final hidden">
+ <div class="card"><div class="emoji">🏆</div><div class="eyebrow">GAME COMPLETE</div><h1>Great Listening!</h1><p id="finalMessage">You completed the game.</p><div class="final-score"><span id="finalScore">0</span> ⭐</div><div id="finalRanking"></div><button class="primary" onclick="location.reload()">Play Again 🔄</button></div>
+</div>
+<div id="toast" class="toast"></div>
+</div>
+
+<script>
+const rounds=[
+{name:"Easy Peasy Listening",emoji:"🌸",description:"Listen for simple information. Then lean LEFT or RIGHT!",questions:[
+{sentence:"The cat is sleeping on the sofa.",left:"Cat",right:"Dog",answer:"left"},
+{sentence:"Sarah has a red bag.",left:"Red",right:"Blue",answer:"left"},
+{sentence:"Tom eats an apple for breakfast.",left:"Apple",right:"Orange",answer:"left"},
+{sentence:"The boy goes to school at eight o'clock.",left:"8 o'clock",right:"10 o'clock",answer:"left"}]},
+{name:"Listen & Find 🔎",emoji:"🕵️",description:"Listen for specific details such as people, places and objects.",questions:[
+{sentence:"Mia bought a yellow umbrella at the shop.",left:"Yellow",right:"Green",answer:"left"},
+{sentence:"Daniel plays football every Saturday.",left:"Friday",right:"Saturday",answer:"right"},
+{sentence:"The family travelled to Penang by bus.",left:"Bus",right:"Train",answer:"left"},
+{sentence:"Aisha's birthday is in December.",left:"June",right:"December",answer:"right"}]},
+{name:"Super Listening Challenge ⭐",emoji:"🌟",description:"The sentences are longer. Listen carefully for the important detail!",questions:[
+{sentence:"Although Amir wanted chocolate ice cream, he chose vanilla.",left:"Chocolate",right:"Vanilla",answer:"right"},
+{sentence:"Lina usually walks to school, but today her father drives her.",left:"Walks",right:"Drives",answer:"right"},
+{sentence:"The blue notebook belongs to Sara, not her brother Adam.",left:"Sara",right:"Adam",answer:"left"},
+{sentence:"The teacher said the test would be on Thursday, not Tuesday.",left:"Tuesday",right:"Thursday",answer:"right"}]}];
+
+let mode="player",peer=null,hostConn=null,roomCode="",playerId="",playerName="",isHost=false;
+let connections={},players={};
+let currentRound=0,currentQuestion=0,score=0,currentCorrectAnswer=null,questionActive=false;
+let cameraStarted=false,detecting=false,lastLean=null,stableSince=0,currentStream=null;
+let answered=false,hostQuestionLocked=false;
+
+const $=id=>document.getElementById(id);
+function show(id){["homeScreen","createScreen","joinScreen","lobbyScreen","gameScreen","finalScreen"].forEach(x=>$(x).classList.add("hidden"));$(id).classList.remove("hidden")}
+function goHome(){if(peer)try{peer.destroy()}catch(e){};peer=null;hostConn=null;roomCode="";isHost=false;show("homeScreen");$("roomHeader").style.display="none"}
+function showCreate(){show("createScreen");$("hostName").focus()}
+function showJoin(){show("joinScreen");$("roomInput").focus()}
+function toast(msg){$("toast").textContent=msg;$("toast").style.display="block";clearTimeout(window._toast);window._toast=setTimeout(()=>$("toast").style.display="none",2500)}
+function makePin(){return String(Math.floor(100000+Math.random()*900000))}
+function waitPeer(id){return new Promise((resolve,reject)=>{const p=new Peer(id,{debug:0});let done=false;p.on("open",()=>{done=true;resolve(p)});p.on("error",e=>{if(!done){done=true;reject(e)}});setTimeout(()=>{if(!done){done=true;reject(new Error("timeout"))}},6000)})}
+
+async function createRoom(){
+ playerName=$("hostName").value.trim()||"Host";isHost=true;mode="host";
+ let attempts=0;
+ while(attempts++<5){roomCode=makePin();try{peer=await waitPeer(roomCode);break}catch(e){peer=null}}
+ if(!peer){toast("Could not create a room. Try again.");return}
+ $("roomHeader").textContent="ROOM "+roomCode;$("roomHeader").style.display="block";$("pinDisplay").textContent=roomCode;
+ players={host:{name:playerName,score:0,connected:true,host:true}};
+ peer.on("connection",conn=>handleHostConnection(conn));
+ $("lobbyStatus").textContent="Room is ready. Waiting for players…";
+ $("startGameBtn").style.display="none";$("hostHint").textContent="Share the PIN. Start the game when everyone has joined.";
+ renderPlayers();show("lobbyScreen");
+}
+
+function joinRoom(){
+ roomCode=$("roomInput").value.trim();playerName=$("playerName").value.trim()||"Player";
+ if(!/^\d{6}$/.test(roomCode)){toast("Enter the 6-digit game PIN.");return}
+ mode="player";isHost=false;playerId="p_"+Math.random().toString(36).slice(2,9);
+ peer=new Peer({debug:0});
+ peer.on("open",()=>{hostConn=peer.connect(roomCode,{reliable:true});hostConn.on("open",()=>{hostConn.send({type:"join",id:playerId,name:playerName});$("roomHeader").textContent="ROOM "+roomCode;$("roomHeader").style.display="block";$("pinDisplay").textContent=roomCode;$("lobbyStatus").textContent="Connected! Waiting for the host…";$("hostHint").textContent="You are in the room as "+playerName;renderPlayers();show("lobbyScreen")});hostConn.on("data",handlePlayerData);hostConn.on("close",()=>toast("Host disconnected."));hostConn.on("error",()=>toast("Connection error."))});
+ peer.on("error",e=>{toast("Could not join that room. Check the PIN.");});
+}
+
+function handleHostConnection(conn){
+ conn.on("data",data=>{
+  if(data.type==="join"){
+   connections[data.id]=conn;players[data.id]={name:data.name,score:0,connected:true};
+   conn.send({type:"welcome",players});
+   broadcast({type:"players",players});
+   $("startGameBtn").style.display="inline-block";renderPlayers();
+  }else if(data.type==="answer"){
+   const p=players[data.id];if(!p)return;
+   if(data.correct){p.score+=100} // host is authoritative for the score
+   broadcast({type:"ranking",players});
+   renderRanking();
+  }else if(data.type==="finished"){
+   if(players[data.id])players[data.id].finished=true;
+   checkAllFinished();
+  }
+ });
+ conn.on("close",()=>{for(const id in connections)if(connections[id]===conn){if(players[id])players[id].connected=false;delete connections[id];broadcast({type:"players",players});renderPlayers();renderRanking()}});
+}
+
+function broadcast(msg){Object.values(connections).forEach(c=>{try{c.send(msg)}catch(e){}})}
+function sendToHost(msg){if(hostConn&&hostConn.open)hostConn.send({...msg,id:playerId})}
+
+function handlePlayerData(data){
+ if(data.type==="welcome"||data.type==="players"){players=data.players;renderPlayers()}
+ if(data.type==="gameStart"){currentRound=0;currentQuestion=0;score=0;$("score").textContent="0";show("gameScreen");loadQuestion(data.question)}
+ if(data.type==="question"){loadQuestion(data.question)}
+ if(data.type==="ranking"){players=data.players;renderRanking()}
+ if(data.type==="gameEnd"){showFinal(data.players)}
+}
+
+function renderPlayers(){
+ const arr=Object.entries(players).filter(([id,p])=>p.connected!==false);
+ $("players").innerHTML=arr.map(([id,p])=>`<div class="player-chip">${p.host?"👑 ":"👤 "}${escapeHtml(p.name)}</div>`).join("");
+ $("rankCount").textContent=arr.length;
+ if(isHost)$("lobbyStatus").textContent=`${arr.length} player${arr.length===1?"":"s"} in the room`;
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function sortedPlayers(){return Object.values(players).filter(p=>p.connected!==false).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name))}
+function renderRanking(){
+ const sorted=sortedPlayers();$("rankCount").textContent=sorted.length;
+ $("ranking").innerHTML=sorted.map((p,i)=>`<div class="rank-row ${p.name===playerName?"rank-me":""}"><div class="rank-num">${["🥇","🥈","🥉"][i]||i+1}</div><div class="rank-name">${escapeHtml(p.name)}</div><div class="rank-score">${p.score}</div></div>`).join("")||"<div class='status'>Waiting…</div>";
+}
+
+function hostStartGame(){
+ if(!isHost)return;
+ currentRound=0;currentQuestion=0;score=0;
+ players.host.score=0;players.host.connected=true;
+ const q=rounds[0].questions[0];
+ broadcast({type:"gameStart",question:q});
+ $("score").textContent="0";show("gameScreen");$("hostControl").classList.remove("hidden");loadQuestion(q);renderRanking();
+}
+function hostNextQuestion(){
+ if(!isHost)return;
+ advanceQuestion(true);
+}
+function advanceQuestion(fromHost=false){
+ currentQuestion++;
+ if(currentQuestion>=rounds[currentRound].questions.length){currentQuestion=0;currentRound++}
+ if(currentRound>=rounds.length){broadcast({type:"gameEnd",players});showFinal(players);return}
+ const q=rounds[currentRound].questions[currentQuestion];
+ broadcast({type:"question",question:q});
+ loadQuestion(q);
+}
+function checkAllFinished(){
+ // Prototype behavior: host advances manually so players never get skipped by a slow connection.
+}
+
+function loadQuestion(q){
+ currentCorrectAnswer=q.answer;answered=false;questionActive=false;detecting=false;lastLean=null;stableSince=0;
+ $("roundTag").textContent=`${rounds[currentRound].emoji} Round ${currentRound+1}`;
+ $("questionNumber").textContent=currentQuestion+1;$("leftAnswer").textContent=q.left;$("rightAnswer").textContent=q.right;
+ $("leftBox").classList.remove("correct-answer","wrong-answer","selected");$("rightBox").classList.remove("correct-answer","wrong-answer","selected");
+ $("cameraStatus").textContent="Listen first 🔊";$("cameraStatus").className="camera-status";
+ $("listenButton").textContent="🔊 Listen";$("listenButton").classList.remove("active");
+ $("feedback").style.display="none";renderRanking();
+}
+function speakSentence(){
+ const q=rounds[currentRound].questions[currentQuestion];speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(q.sentence);u.lang="en-US";u.rate=.82;u.pitch=1.05;
+ const b=$("listenButton");b.textContent="🔊 Speaking…";b.classList.add("active");
+ u.onend=()=>{b.textContent="🔊 Listen Again";b.classList.remove("active");startCountdown()};speechSynthesis.speak(u);
+}
+function startCountdown(){
+ $("countdown").style.display="flex";let n=3;$("countdownNumber").textContent=n;
+ const t=setInterval(()=>{n--;if(n<=0){clearInterval(t);$("countdown").style.display="none";beginLeanDetection()}else $("countdownNumber").textContent=n},700);
+}
+function beginLeanDetection(){questionActive=true;detecting=true;lastLean=null;stableSince=0;$("cameraStatus").textContent="Lean LEFT or RIGHT! 👈 👉"}
+function manualAnswer(direction){if(questionActive&&!answered)registerAnswer(direction)}
+
+async function startCamera(){
+ if(cameraStarted)return;
+ if(!navigator.mediaDevices?.getUserMedia){$("cameraStatus").textContent="⚠️ Camera needs HTTPS.";return}
+ try{
+  $("cameraStatus").textContent="Requesting camera permission… 📷";
+  currentStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:640},height:{ideal:480}}});
+  $("video").srcObject=currentStream;await $("video").play();cameraStarted=true;$("cameraOverlay").classList.add("hidden");$("cameraStatus").textContent="Camera ready! Lean LEFT or RIGHT 👈 👉";setupPoseDetection();
+ }catch(e){$("cameraStatus").textContent=e.name==="NotAllowedError"?"🔒 Camera permission blocked. Allow camera and reload.":"⚠️ Camera could not start. Use HTTPS and check your camera."}
+}
+let pose;
+function setupPoseDetection(){
+ pose=new Pose({locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+ pose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.55,minTrackingConfidence:.55});
+ pose.onResults(onPoseResults);
+ const cam=new Camera($("video"),{onFrame:async()=>{if(pose&&$("video").readyState>=2)await pose.send({image:$("video")})},width:640,height:480});cam.start();
+}
+function onPoseResults(results){
+ if(!detecting||!questionActive||answered||!results.poseLandmarks)return;
+ const l=results.poseLandmarks,n=l[0],ls=l[11],rs=l[12],lh=l[23],rh=l[24];
+ if([n,ls,rs,lh,rh].some(x=>x.visibility<.5))return;
+ const shoulderX=(ls.x+rs.x)/2,hipX=(lh.x+rh.x)/2,torsoX=(shoulderX+hipX)/2,d=n.x-torsoX,threshold=.055;
+ let lean=null;if(d< -threshold)lean="right";else if(d>threshold)lean="left";
+ if(lean){$("cameraStatus").innerHTML=lean==="left"?"👈 LEANING LEFT!":"👉 LEANING RIGHT!";$("cameraStatus").className="camera-status "+(lean==="left"?"lean-left":"lean-right");
+  if(lean!==lastLean){lastLean=lean;stableSince=Date.now()}else if(Date.now()-stableSince>450)registerAnswer(lean)
+ }else{lastLean=null;$("cameraStatus").textContent="Lean LEFT or RIGHT! 👈 👉";$("cameraStatus").className="camera-status"}
+}
+function registerAnswer(direction){
+ if(answered||!questionActive)return;answered=true;questionActive=false;detecting=false;
+ const correct=direction===currentCorrectAnswer;
+ $(direction==="left"?"leftBox":"rightBox").classList.add("selected");
+ $(currentCorrectAnswer==="left"?"leftBox":"rightBox").classList.add("correct-answer");
+ if(!correct)$(direction==="left"?"leftBox":"rightBox").classList.add("wrong-answer");
+ if(correct){score+=100;$("score").textContent=score;showFeedback(true)}else showFeedback(false);
+ if(isHost){players.host.score=score;renderRanking();broadcast({type:"ranking",players})}
+ else sendToHost({type:"answer",correct});
+}
+function showFeedback(correct){
+ $("feedbackEmoji").textContent=correct?"🎉":"🌱";$("feedbackTitle").textContent=correct?"Amazing!":"Good Try!";
+ $("feedbackText").textContent=correct?"Correct! +100 points":"Not quite! Listen carefully to the next one.";
+ $("feedbackNext").textContent=isHost?"Next Question ➜":"Waiting for host…";$("feedback").style.display="flex";
+}
+function closeFeedback(){
+ $("feedback").style.display="none";
+ if(isHost)hostNextQuestion();
+}
+function showFinal(data){
+ players=data||players;renderRanking();$("finalScore").textContent=score;$("finalMessage").textContent=isHost?"Game complete!":"You completed all 12 questions!";
+ const sorted=sortedPlayers();$("finalRanking").innerHTML="<h2>🏆 Final Ranking</h2>"+sorted.map((p,i)=>`<div class="rank-row"><div class="rank-num">${i+1}</div><div class="rank-name">${escapeHtml(p.name)}</div><div class="rank-score">${p.score}</div></div>`).join("");
+ show("finalScreen");
+}
+show("homeScreen");
+</script>
+</body>
+</html>
